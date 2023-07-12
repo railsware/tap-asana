@@ -20,6 +20,7 @@ REQUIRED_CONFIG_KEYS = [
     "client_secret",
     "redirect_uri",
     "refresh_token",
+    "page_size"
 ]
 
 
@@ -177,6 +178,9 @@ def main():
         "client_secret": args.config["client_secret"],
         "redirect_uri": args.config["redirect_uri"],
         "refresh_token": args.config["refresh_token"],
+        "options": {
+            "page_size": args.config["page_size"],
+        }
     }
 
     # As we passed 'request_timeout', we need to add a whole 'args.config' rather than adding 'creds'
