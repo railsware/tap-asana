@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from tap_asana.context import Context
 from tap_asana.streams.base import Stream
 
@@ -61,21 +63,33 @@ class Tasks(Stream):
             for project in self.call_api("projects", workspace=workspace["gid"]):
                 project_ids.append(project["gid"])
 
-        # iterate over all project ids and continue fetching
-        for project_id in project_ids:
-            for task in self.call_api(
+        with ThreadPoolExecutor(max_workers=len(project_ids)) as executor:
+            arguments = [(project_id, opt_fields, modified_since, session_bookmark) for project_id in project_ids]
+            results = executor.map(self.get_tasks, arguments)
+
+            for result in results:
+                for task in result:
+                    yield task
+
+        self.update_bookmark(session_bookmark)
+
+    def get_tasks(self, params):
+        project_id, opt_fields, modified_since, session_bookmark = params
+        tasks = []
+
+        for task in self.call_api(
                 "tasks",
                 project=project_id,
                 opt_fields=opt_fields,
                 modified_since=modified_since,
-            ):
-                session_bookmark = self.get_updated_session_bookmark(
-                    session_bookmark, task[self.replication_key]
-                )
-                if self.is_bookmark_old(task[self.replication_key]):
-                    yield task
+        ):
+            session_bookmark = self.get_updated_session_bookmark(
+                session_bookmark, task[self.replication_key]
+            )
+            if self.is_bookmark_old(task[self.replication_key]):
+                tasks.append(task)
 
-        self.update_bookmark(session_bookmark)
+        return tasks
 
 
 Context.stream_objects["tasks"] = Tasks
