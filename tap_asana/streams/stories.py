@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from tap_asana.context import Context
 from tap_asana.streams.base import Stream
 
@@ -63,10 +65,14 @@ class Stories(Stream):
         "type"
     ]
 
+    def __init__(self):
+        super().__init__()
+        self.session_bookmark = None
+
     def get_objects(self):
         """Get stream object"""
         bookmark = self.get_bookmark()
-        session_bookmark = bookmark
+        self.session_bookmark = bookmark
         opt_fields = ",".join(self.fields)
 
         # list of project ids
@@ -76,22 +82,55 @@ class Stories(Stream):
             for project in self.call_api("projects", workspace=workspace["gid"]):
                 project_ids.append(project["gid"])
 
-        # iterate over all project ids and continue fetching
-        for project_id in project_ids:
-            for task in self.call_api("tasks", project=project_id):
-                task_gid = task.get("gid")
-                for story in Context.asana.client.stories.get_stories_for_task(
-                    task_gid=task_gid,
-                    opt_fields=opt_fields,
-                    timeout=self.request_timeout,
-                ):
-                    session_bookmark = self.get_updated_session_bookmark(
-                        session_bookmark, story[self.replication_key]
-                    )
-                    if self.is_bookmark_old(story[self.replication_key]):
-                        yield story
+        project_ids_count = len(project_ids)
 
-        self.update_bookmark(session_bookmark)
+        if project_ids_count == 0:
+            return
+
+        with ThreadPoolExecutor(max_workers=project_ids_count) as tasks_executor:
+            tasks_arguments = [project_id for project_id in project_ids]
+            tasks_results = tasks_executor.map(self.get_task_gids, tasks_arguments)
+
+            for task_gids in tasks_results:
+                task_gids_count = len(task_gids)
+
+                if task_gids_count == 0:
+                    continue
+
+                with ThreadPoolExecutor(max_workers=task_gids_count) as stories_executor:
+                    stories_arguments = [(task_gid, opt_fields) for task_gid in task_gids]
+                    stories_results = stories_executor.map(self.get_stories, stories_arguments)
+
+                    for stories in stories_results:
+                        for story in stories:
+                            yield story
+
+        self.update_bookmark(self.session_bookmark)
+
+    def get_task_gids(self, project_id):
+        task_gids = []
+
+        for task in self.call_api("tasks", project=project_id):
+            task_gids.append(task.get("gid"))
+
+        return task_gids
+
+    def get_stories(self, params):
+        task_gid, opt_fields = params
+        stories = []
+
+        for story in Context.asana.client.stories.get_stories_for_task(
+            task_gid=task_gid,
+            opt_fields=opt_fields,
+            timeout=self.request_timeout,
+        ):
+            self.session_bookmark = self.get_updated_session_bookmark(
+                self.session_bookmark, story[self.replication_key]
+            )
+            if self.is_bookmark_old(story[self.replication_key]):
+                stories.append(story)
+
+        return stories
 
 
 Context.stream_objects["stories"] = Stories
