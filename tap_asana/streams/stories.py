@@ -87,9 +87,9 @@ class Stories(Stream):
         if project_ids_count == 0:
             return
 
-        with ThreadPoolExecutor(max_workers=project_ids_count) as tasks_executor:
+        with ThreadPoolExecutor(max_workers=min(32, project_ids_count)) as executor:
             tasks_arguments = [project_id for project_id in project_ids]
-            tasks_results = tasks_executor.map(self.get_task_gids, tasks_arguments)
+            tasks_results = executor.map(self.get_task_gids, tasks_arguments)
 
             for task_gids in tasks_results:
                 task_gids_count = len(task_gids)
@@ -97,23 +97,17 @@ class Stories(Stream):
                 if task_gids_count == 0:
                     continue
 
-                with ThreadPoolExecutor(max_workers=task_gids_count) as stories_executor:
-                    stories_arguments = [(task_gid, opt_fields) for task_gid in task_gids]
-                    stories_results = stories_executor.map(self.get_stories, stories_arguments)
+                stories_arguments = [(task_gid, opt_fields) for task_gid in task_gids]
+                stories_results = executor.map(self.get_stories, stories_arguments)
 
-                    for stories in stories_results:
-                        for story in stories:
-                            yield story
+                for stories in stories_results:
+                    for story in stories:
+                        yield story
 
         self.update_bookmark(self.session_bookmark)
 
     def get_task_gids(self, project_id):
-        task_gids = []
-
-        for task in self.call_api("tasks", project=project_id):
-            task_gids.append(task.get("gid"))
-
-        return task_gids
+        return [task.get("gid") for task in self.call_api("tasks", project=project_id)]
 
     def get_stories(self, params):
         task_gid, opt_fields = params
