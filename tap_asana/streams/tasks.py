@@ -72,7 +72,7 @@ class Tasks(Stream):
         if project_ids_count == 0:
             return
 
-        with ThreadPoolExecutor(max_workers=project_ids_count) as executor:
+        with ThreadPoolExecutor(max_workers=min(32, project_ids_count)) as executor:
             arguments = [(project_id, opt_fields, modified_since) for project_id in project_ids]
             results = executor.map(self.get_tasks, arguments)
 
