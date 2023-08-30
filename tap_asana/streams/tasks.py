@@ -69,7 +69,7 @@ class Tasks(Stream):
 
         project_ids_count = len(project_ids)
 
-        if project_ids_count == 0:
+        if not project_ids:
             return
 
         with ThreadPoolExecutor(max_workers=min(32, project_ids_count)) as executor:
@@ -77,8 +77,7 @@ class Tasks(Stream):
             results = executor.map(self.get_tasks, arguments)
 
             for result in results:
-                for task in result:
-                    yield task
+                yield from result
 
         self.update_bookmark(self.session_bookmark)
 

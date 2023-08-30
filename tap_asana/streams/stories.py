@@ -84,7 +84,7 @@ class Stories(Stream):
 
         project_ids_count = len(project_ids)
 
-        if project_ids_count == 0:
+        if not project_ids:
             return
 
         with ThreadPoolExecutor(max_workers=min(32, project_ids_count)) as executor:
@@ -92,17 +92,14 @@ class Stories(Stream):
             tasks_results = executor.map(self.get_task_gids, tasks_arguments)
 
             for task_gids in tasks_results:
-                task_gids_count = len(task_gids)
-
-                if task_gids_count == 0:
+                if not task_gids:
                     continue
 
                 stories_arguments = [(task_gid, opt_fields) for task_gid in task_gids]
                 stories_results = executor.map(self.get_stories, stories_arguments)
 
                 for stories in stories_results:
-                    for story in stories:
-                        yield story
+                    yield from stories
 
         self.update_bookmark(self.session_bookmark)
 
