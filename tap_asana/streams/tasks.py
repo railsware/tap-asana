@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from tap_asana.context import Context
 from tap_asana.streams.base import Stream
 
@@ -47,6 +49,10 @@ class Tasks(Stream):
         "assignee_section"
     ]
 
+    def __init__(self):
+        super().__init__()
+        self.session_bookmark = None
+
     def get_objects(self):
         """Get stream object"""
         # list of project ids
@@ -54,28 +60,44 @@ class Tasks(Stream):
 
         opt_fields = ",".join(self.fields)
         bookmark = self.get_bookmark()
-        session_bookmark = bookmark
+        self.session_bookmark = bookmark
         modified_since = bookmark.strftime("%Y-%m-%dT%H:%M:%S.%f")
 
         for workspace in self.call_api("workspaces"):
             for project in self.call_api("projects", workspace=workspace["gid"]):
                 project_ids.append(project["gid"])
 
-        # iterate over all project ids and continue fetching
-        for project_id in project_ids:
-            for task in self.call_api(
+        project_ids_count = len(project_ids)
+
+        if not project_ids:
+            return
+
+        with ThreadPoolExecutor(max_workers=min(32, project_ids_count)) as executor:
+            arguments = [(project_id, opt_fields, modified_since) for project_id in project_ids]
+            results = executor.map(self.get_tasks, arguments)
+
+            for result in results:
+                yield from result
+
+        self.update_bookmark(self.session_bookmark)
+
+    def get_tasks(self, params):
+        project_id, opt_fields, modified_since = params
+        tasks = []
+
+        for task in self.call_api(
                 "tasks",
                 project=project_id,
                 opt_fields=opt_fields,
                 modified_since=modified_since,
-            ):
-                session_bookmark = self.get_updated_session_bookmark(
-                    session_bookmark, task[self.replication_key]
-                )
-                if self.is_bookmark_old(task[self.replication_key]):
-                    yield task
+        ):
+            self.session_bookmark = self.get_updated_session_bookmark(
+                self.session_bookmark, task[self.replication_key]
+            )
+            if self.is_bookmark_old(task[self.replication_key]):
+                tasks.append(task)
 
-        self.update_bookmark(session_bookmark)
+        return tasks
 
 
 Context.stream_objects["tasks"] = Tasks
