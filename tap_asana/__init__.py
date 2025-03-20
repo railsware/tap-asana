@@ -16,10 +16,6 @@ import tap_asana.streams  # Load stream objects into Context
 
 REQUIRED_CONFIG_KEYS = [
     "start_date",
-    "client_id",
-    "client_secret",
-    "redirect_uri",
-    "refresh_token",
     "page_size",
     "access_token",
 ]
@@ -175,10 +171,6 @@ def main():
 
     # Set context.
     creds = {
-        "client_id": args.config["client_id"],
-        "client_secret": args.config["client_secret"],
-        "redirect_uri": args.config["redirect_uri"],
-        "refresh_token": args.config["refresh_token"],
         "access_token": args.config["access_token"],
         "options": {
             "page_size": args.config["page_size"],

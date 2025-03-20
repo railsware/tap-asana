@@ -11,12 +11,8 @@ class Asana():
     """Base class for tap-asana"""
 
     def __init__(
-        self, client_id, client_secret, redirect_uri, refresh_token, access_token=None, options=None
+        self, access_token=None, options=None
     ):  # pylint: disable=too-many-arguments
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.redirect_uri = redirect_uri
-        self.refresh_token = refresh_token
         self.access_token = access_token
         self._client = self._access_token_auth()
 
