@@ -19,7 +19,6 @@ class Asana():
         self.refresh_token = refresh_token
         self.access_token = access_token
         self._client = self._oauth_auth() or self._access_token_auth()
-        self.refresh_access_token()
 
         if options is not None:
             self.update_options(options)
@@ -46,14 +45,6 @@ class Asana():
             LOGGER.debug("OAuth authentication unavailable.")
             return None
         return asana.Client.access_token(self.access_token)
-
-    def refresh_access_token(self):
-        return self._client.session.refresh_token(
-            self._client.session.token_url,
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-            refresh_token=self.refresh_token,
-        )
 
     def update_options(self, options):
         self._client.options.update(options)

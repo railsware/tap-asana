@@ -20,7 +20,8 @@ REQUIRED_CONFIG_KEYS = [
     "client_secret",
     "redirect_uri",
     "refresh_token",
-    "page_size"
+    "page_size",
+    "access_token",
 ]
 
 
@@ -178,6 +179,7 @@ def main():
         "client_secret": args.config["client_secret"],
         "redirect_uri": args.config["redirect_uri"],
         "refresh_token": args.config["refresh_token"],
+        "access_token": args.config["access_token"],
         "options": {
             "page_size": args.config["page_size"],
         }
