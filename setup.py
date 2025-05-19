@@ -11,12 +11,12 @@ setup(
     py_modules=["tap_asana"],
     install_requires=[
         "asana==3.2.1",
-        'singer-python==5.13.0'
+        'singer-python@git+https://github.com/railsware/singer-python/@565fcb685e6a636c3ad21e421a0662da47757573',
     ],
     extras_require={
         'test': [
             'pylint',
-            'requests==2.20.0',
+            'requests>=2.20.0',
             'nose'
         ],
         'dev': [
