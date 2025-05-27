@@ -63,6 +63,11 @@ def retry_handler(details):
 def retry_after_wait_gen(**kwargs):
     # This is called in an except block so we can retrieve the exception
     # and check it.
+
+    # Inspired by backoff._wait_gen.*
+    # Advance past initial .send() call.
+    yield  # type: ignore[misc]
+
     exc_info = sys.exc_info()
     resp = exc_info[1].response
     # Retry-After is an undocumented header. But honoring
